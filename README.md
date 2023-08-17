@@ -1,5 +1,5 @@
 # wallbox-tooling
-Tools and proof of concepts of extending the Wallbox Pulsar Plus
+Tools and proof of concepts of extending the Wallbox Pulsar Plus. To be uploaded to Wallbox using e.g. scp.
 
 ## Proof of concept: Rest API
 `python3 local-rest.py`
