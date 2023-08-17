@@ -47,7 +47,7 @@ try:
             result = cursor.fetchone()
             for key, val in result.items():
                 if key not in published or published.get(key) != val:
-                    mqttc.publish(stat_prefix + key, val, retain=True)
+                    mqttc.publish(prefix + key + stat_suffix, val, retain=True)
                     published[key] = val
             time.sleep(1)
 
