@@ -1,0 +1,2 @@
+pip install paho-mqtt
+pip install pymysql==0.10.1
