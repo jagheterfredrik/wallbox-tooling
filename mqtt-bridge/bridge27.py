@@ -29,7 +29,7 @@ def listener_thread():
                 cursor.execute("update wallbox_config set `lock`=%s;", (message.payload,))
             connection.commit()
 
-        subscribe.callback(cb, cmd_prefix + "#", hostname="mqtt.eclipseprojects.io")
+        subscribe.callback(cb, cmd_prefix + "#", hostname="localhost:1883")
 
 x = threading.Thread(target=listener_thread, args=tuple())
 x.start()
@@ -43,7 +43,7 @@ try:
             result = cursor.fetchone()
             print(result)
             for key, val in result.items():
-                publish.single(stat_prefix + key, val, hostname="mqtt.eclipseprojects.io")
+                publish.single(stat_prefix + key, val, hostname="localhost:1883")
             time.sleep(1)
 
 finally:
