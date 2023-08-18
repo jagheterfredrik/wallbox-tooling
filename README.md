@@ -7,7 +7,7 @@ Test using
 `curl http://wallbox-ip:8000/lock`
 
 ## Proof of concept: Modbus TCP
-./mbusd -d -p /dev/ttyS0 -L -
+`./mbusd -d -p /dev/ttyS0 -L -`
 
 ## Proof of concept: MQTT bridge
 Highly experimental
