@@ -9,9 +9,8 @@ Test using
 ## Proof of concept: Modbus TCP
 `./mbusd -d -p /dev/ttyS0 -L -`
 
-## Proof of concept: MQTT bridge
-Highly experimental
-`python3 bridge.py`
+## MQTT Bridge
+See notes.txt in mqtt-proxy directory.
 
 ## Tooling
 Compiled versions of `gdb`, `interceptty`, `screen` and `tcpdump` compatible with the Wallbox.
