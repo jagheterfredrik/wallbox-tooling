@@ -142,15 +142,16 @@ try:
 
     published = {}
     while True:
-        with connection.cursor() as cursor:
-            cursor.execute(DB_QUERY)
-            result = cursor.fetchone()
-            assert result
-        for key, val in result.items():
-            if published.get(key) != val:
-                print("Publishing:", key, val)
-                mqttc.publish(topic_prefix + "/" + key + "/state", val, retain=True)
-                published[key] = val
+        if mqttc.is_connected():
+            with connection.cursor() as cursor:
+                cursor.execute(DB_QUERY)
+                result = cursor.fetchone()
+                assert result
+            for key, val in result.items():
+                if published.get(key) != val:
+                    print("Publishing:", key, val)
+                    mqttc.publish(topic_prefix + "/" + key + "/state", val, retain=True)
+                    published[key] = val
         time.sleep(POLLING_INTERVAL_SECONDS)
 
 finally:
