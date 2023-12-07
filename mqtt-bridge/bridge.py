@@ -88,12 +88,19 @@ ENTITIES_CONFIG = {
         },
     },
 }
-DB_QUERY = (
-    "SELECT `charging_enable`, `lock`, `max_charging_current`,"
-    + " `was_connected` AS cable_connected, `charging_power`,"
-    + " `energy_total` AS added_energy, `charged_range` AS added_range"
-    + " FROM `wallbox_config`, `active_session`;"
-)
+
+DB_QUERY = """
+SELECT
+  `charging_enable`,
+  `lock`,
+  `max_charging_current`,
+  `was_connected` AS cable_connected,
+  `charging_power`,
+  GREATEST(`energy_total`, `charged_energy` - `start_charging_energy_tms`) AS added_energy,
+  `charged_range` AS added_range
+FROM `wallbox_config`, `active_session`, `power_outage_values`;
+"""
+
 UPDATEABLE_WALLBOX_CONFIG_FIELDS = ["charging_enable", "lock", "max_charging_current"]
 
 connection = pymysql.connect(
