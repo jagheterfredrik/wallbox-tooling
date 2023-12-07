@@ -1,24 +1,17 @@
 """MQTT bridge.
 
-Polls local database and publishes changes to an external MQTT broker for Home Assistant.
+Polls the local database and publishes changes to an external MQTT broker for Home Assistant.
 Accepts changes from Home Assistant and updates the local database.
 Supports Home Assistant discovery.
 """
+import configparser
 import json
+import os
 import re
 import time
 
 import paho.mqtt.client as mqtt
 import pymysql.cursors
-
-# Change these 4 lines to match your MQTT broker
-MQTT_HOST = "192.168.86.4"
-MQTT_PORT = 1883
-MQTT_USERNAME = "mqtt-user"
-MQTT_PASSWORD = "mqtt"
-
-POLLING_INTERVAL_SECONDS = 1.0
-DEVICE_NAME = "Wallbox"
 
 ENTITIES_CONFIG = {
     "charging_enable": {
@@ -63,12 +56,53 @@ ENTITIES_CONFIG = {
             "device_class": "plug",
         },
     },
+    # TODO: Uncomment after fixing.
+    # Commented out because it doesn't reset to 0 in db after done charging or paused.
+    # "charging_power": {
+    #     "component": "sensor",
+    #     "config": {
+    #         "name": "Charging power",
+    #         "device_class": "power",
+    #         "unit_of_measurement": "W",
+    #         "state_class": "total",
+    #         "suggested_display_precision": 1,
+    #     },
+    # },
+    "added_energy": {
+        "component": "sensor",
+        "config": {
+            "name": "Added energy",
+            "device_class": "energy",
+            "unit_of_measurement": "Wh",
+            "state_class": "total",
+            "suggested_display_precision": 1,
+        },
+    },
+    "added_range": {
+        "component": "sensor",
+        "config": {
+            "name": "Added range",
+            "device_class": "distance",
+            "unit_of_measurement": "km",
+            "state_class": "total",
+            "suggested_display_precision": 1,
+            "icon": "mdi:map-marker-distance",
+        },
+    },
 }
-DB_QUERY = (
-    "SELECT `charging_enable`, `lock`, `max_charging_current`,"
-    + " `was_connected` AS cable_connected"
-    + " FROM `wallbox_config`, `active_session`;"
-)
+
+DB_QUERY = """
+SELECT
+  `charging_enable`,
+  `lock`,
+  `max_charging_current`,
+  `was_connected` AS cable_connected,
+  `charging_power`,
+  GREATEST(`energy_total`, `charged_energy` - `start_charging_energy_tms`) AS added_energy,
+  `charged_range` AS added_range
+FROM `wallbox_config`, `active_session`, `power_outage_values`;
+"""
+
 UPDATEABLE_WALLBOX_CONFIG_FIELDS = ["charging_enable", "lock", "max_charging_current"]
 
 connection = pymysql.connect(
@@ -88,6 +122,15 @@ connection.autocommit(True)
 mqttc = mqtt.Client()
 
 try:
+    config = configparser.ConfigParser()
+    config.read(os.path.join(os.path.dirname(__file__), "bridge.ini"))
+    mqtt_host = config["mqtt"]["host"]
+    mqtt_port = int(config["mqtt"]["port"])
+    mqtt_username = config["mqtt"]["username"]
+    mqtt_password = config["mqtt"]["password"]
+    polling_interval_seconds = float(config["settings"]["polling_interval_seconds"])
+    device_name = config["settings"]["device_name"]
+
     with connection.cursor() as cursor:
         cursor.execute("SELECT `serial_num` FROM `charger_info`;")
         result = cursor.fetchone()
@@ -99,6 +142,7 @@ try:
     set_topic_re = re.compile(topic_prefix + "/(.*)/set")
 
     def _on_connect(client, userdata, flags, rc):
+        print("Connected to MQTT with", rc)
         if rc == mqtt.MQTT_ERR_SUCCESS:
             mqttc.subscribe(set_topic)
             for k, v in ENTITIES_CONFIG.items():
@@ -110,7 +154,7 @@ try:
                     "unique_id": unique_id,
                     "device": {
                         "identifiers": serial_num,
-                        "name": DEVICE_NAME,
+                        "name": device_name,
                     },
                 }
                 config = {**v["config"], **config}
@@ -136,22 +180,24 @@ try:
 
     mqttc.on_connect = _on_connect
     mqttc.on_message = _on_message
-    mqttc.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
-    mqttc.connect_async(MQTT_HOST, MQTT_PORT)
+    mqttc.username_pw_set(mqtt_username, mqtt_password)
+    print("Connecting to MQTT", mqtt_host, mqtt_port)
+    mqttc.connect_async(mqtt_host, mqtt_port)
     mqttc.loop_start()
 
     published = {}
     while True:
-        with connection.cursor() as cursor:
-            cursor.execute(DB_QUERY)
-            result = cursor.fetchone()
-            assert result
-        for key, val in result.items():
-            if published.get(key) != val:
-                print("Publishing:", key, val)
-                mqttc.publish(topic_prefix + "/" + key + "/state", val, retain=True)
-                published[key] = val
-        time.sleep(POLLING_INTERVAL_SECONDS)
+        if mqttc.is_connected():
+            with connection.cursor() as cursor:
+                cursor.execute(DB_QUERY)
+                result = cursor.fetchone()
+                assert result
+            for key, val in result.items():
+                if published.get(key) != val:
+                    print("Publishing:", key, val)
+                    mqttc.publish(topic_prefix + "/" + key + "/state", val, retain=True)
+                    published[key] = val
+        time.sleep(polling_interval_seconds)
 
 finally:
     connection.close()

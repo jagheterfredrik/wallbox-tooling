@@ -10,7 +10,7 @@ Test using
 `./mbusd -d -p /dev/ttyS0 -L -`
 
 ## MQTT Bridge
-See notes.txt in mqtt-proxy directory.
+See README.md in mqtt-proxy directory.
 
 ## Tooling
 Compiled versions of `gdb`, `interceptty`, `screen` and `tcpdump` compatible with the Wallbox.
