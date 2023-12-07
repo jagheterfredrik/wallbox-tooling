@@ -78,6 +78,16 @@ ENTITIES_CONFIG = {
             "suggested_display_precision": 1,
         },
     },
+    "cumulative_added_energy": {
+        "component": "sensor",
+        "config": {
+            "name": "Cumulative added energy",
+            "device_class": "energy",
+            "unit_of_measurement": "Wh",
+            "state_class": "total_increasing",
+            "suggested_display_precision": 1,
+        },
+    },
     "added_range": {
         "component": "sensor",
         "config": {
@@ -98,7 +108,8 @@ SELECT
   `max_charging_current`,
   `was_connected` AS cable_connected,
   `charging_power`,
-  GREATEST(`energy_total`, `charged_energy` - `start_charging_energy_tms`) AS added_energy,
+  GREATEST(`energy_total`, IF(`start_charging_energy_tms` > 0, `charged_energy` - `start_charging_energy_tms`, 0)) AS added_energy,
+  `charged_energy` AS cumulative_added_energy,
   `charged_range` AS added_range
 FROM `wallbox_config`, `active_session`, `power_outage_values`;
 """
