@@ -13,7 +13,9 @@ Once you set this up you will have local control of your Wallbox in Home Assista
 1. Root your Wallbox following instructions at <https://github.com/jagheterfredrik/wallbox-pwn>
 2. If you don't have a Mosquitto broker, install and setup the Mosquitto broker addon following instructions at <https://www.youtube.com/watch?v=dqTn-Gk4Qeo>
 3. Download the contents of this directory.
-4. Edit bridge.ini to point to the IP address of your MQTT broker.
+4. Edit bridge.ini
+   - Change `host` to point to the IP address of your MQTT broker
+   - Change `username` and `password` to the correct ones for your MQTT broker
 5. Copy the files to your Wallbox using `scp` (On Windows you can use WinSCP). You should end up with the following files in your Wallbox:
    - `/home/root/mqtt-bridge/bridge.ini`
    - `/home/root/mqtt-bridge/bridge.py`
