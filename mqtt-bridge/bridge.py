@@ -56,16 +56,18 @@ ENTITIES_CONFIG = {
             "device_class": "plug",
         },
     },
-    "charging_power": {
-        "component": "sensor",
-        "config": {
-            "name": "Charging power",
-            "device_class": "power",
-            "unit_of_measurement": "W",
-            "state_class": "total",
-            "suggested_display_precision": 1,
-        },
-    },
+    # TODO: Uncomment after fixing.
+    # Commented out because it doesn't reset to 0 in db after done charging or paused.
+    # "charging_power": {
+    #     "component": "sensor",
+    #     "config": {
+    #         "name": "Charging power",
+    #         "device_class": "power",
+    #         "unit_of_measurement": "W",
+    #         "state_class": "total",
+    #         "suggested_display_precision": 1,
+    #     },
+    # },
     "added_energy": {
         "component": "sensor",
         "config": {
