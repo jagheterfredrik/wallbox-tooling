@@ -63,10 +63,42 @@ ENTITIES_CONFIG = {
             "device_class": "plug",
         },
     },
+    "charging_power": {
+        "component": "sensor",
+        "config": {
+            "name": "Charging power",
+            "device_class": "power",
+            "unit_of_measurement": "W",
+            "state_class": "total",
+            "suggested_display_precision": 1,
+        },
+    },
+    "added_energy": {
+        "component": "sensor",
+        "config": {
+            "name": "Added energy",
+            "device_class": "energy",
+            "unit_of_measurement": "Wh",
+            "state_class": "total",
+            "suggested_display_precision": 1,
+        },
+    },
+    "added_range": {
+        "component": "sensor",
+        "config": {
+            "name": "Added range",
+            "device_class": "distance",
+            "unit_of_measurement": "km",
+            "state_class": "total",
+            "suggested_display_precision": 1,
+            "icon": "mdi:map-marker-distance",
+        },
+    },
 }
 DB_QUERY = (
     "SELECT `charging_enable`, `lock`, `max_charging_current`,"
-    + " `was_connected` AS cable_connected"
+    + " `was_connected` AS cable_connected, `charging_power`,"
+    + " `energy_total` AS added_energy, `charged_range` AS added_range"
     + " FROM `wallbox_config`, `active_session`;"
 )
 UPDATEABLE_WALLBOX_CONFIG_FIELDS = ["charging_enable", "lock", "max_charging_current"]
