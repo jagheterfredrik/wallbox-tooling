@@ -14,16 +14,18 @@ import paho.mqtt.client as mqtt
 import pymysql.cursors
 
 ENTITIES_CONFIG = {
-    "charging_enable": {
-        "component": "switch",
-        "config": {
-            "name": "Charging enable",
-            "payload_on": 1,
-            "payload_off": 0,
-            "command_topic": "~/set",
-            "icon": "mdi:ev-station",
-        },
-    },
+    # TODO: Uncomment after fixing.
+    # https://github.com/jagheterfredrik/wallbox-tooling/issues/4
+    # "charging_enable": {
+    #     "component": "switch",
+    #     "config": {
+    #         "name": "Charging enable",
+    #         "payload_on": 1,
+    #         "payload_off": 0,
+    #         "command_topic": "~/set",
+    #         "icon": "mdi:ev-station",
+    #     },
+    # },
     "lock": {
         "component": "lock",
         "config": {
