@@ -32,6 +32,7 @@ source venv/bin/activate
 # Install dependencies
 pip install paho-mqtt==1.6.1
 pip install pymysql==0.10.1
+pip install redis==3.5.3
 
 # Test the python script runs successfully
 python bridge.py
