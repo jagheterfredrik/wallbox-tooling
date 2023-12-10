@@ -1,6 +1,9 @@
 # wallbox-tooling
 Tools and proof of concepts of extending the Wallbox Pulsar Plus. To be uploaded to Wallbox using e.g. scp.
 
+## MQTT Bridge
+MQTT bridge graduated into its [its own repo](https://github.com/jagheterfredrik/wallbox-mqtt-bridge).
+
 ## Proof of concept: Rest API
 `python3 local-rest.py`
 Test using
@@ -8,9 +11,6 @@ Test using
 
 ## Proof of concept: Modbus TCP
 `./mbusd -d -p /dev/ttyS0 -L -`
-
-## MQTT Bridge
-See README.md in mqtt-proxy directory.
 
 ## Tooling
 Compiled versions of `gdb`, `interceptty`, `screen` and `tcpdump` compatible with the Wallbox.
