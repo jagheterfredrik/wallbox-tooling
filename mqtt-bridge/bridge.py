@@ -5,6 +5,7 @@ Accepts changes from Home Assistant and updates the local database.
 Supports Home Assistant discovery.
 """
 import configparser
+import ctypes
 import json
 import os
 import re
@@ -12,22 +13,56 @@ import time
 
 import paho.mqtt.client as mqtt
 import pymysql.cursors
+import redis
+
+connection = pymysql.connect(
+    host="localhost",
+    user="root",
+    password="fJmExsJgmKV7cq8H",
+    db="wallbox",
+    charset="utf8mb4",
+    cursorclass=pymysql.cursors.DictCursor,
+)
+# Because the transaction isolation is set to REPEATABLE-READ we need to commit after every write and read.
+# If it was READ-COMMITTED this would only be needed after every write.
+# Check the transaction isolation with:
+# "SELECT @@GLOBAL.tx_isolation, @@tx_isolation;"
+connection.autocommit(True)
+
+redis_connection = redis.Redis(host='localhost', port=6379, db=0)
+
+def sql_execute(sql, *args):
+    with connection.cursor() as cursor:
+        cursor.execute(sql, args)
+        return cursor.fetchone()
+
+libc = ctypes.CDLL(None)
+syscall = libc.syscall
+
+def pause_resume(val):
+    # mq_open()
+    mq = syscall(274, b'WALLBOX_MYWALLBOX_WALLBOX_STATEMACHINE', 0x2, 0x1c7)
+    if val == 1:
+        syscall(276, mq, b'EVENT_REQUEST_USER_ACTION#1.000000'.ljust(1024, b'\x00'), 1024, 0, None)
+    else:
+        syscall(276, mq, b'EVENT_REQUEST_USER_ACTION#2.000000'.ljust(1024, b'\x00'), 1024, 0, None)
+
 
 ENTITIES_CONFIG = {
-    # TODO: Uncomment after fixing.
-    # https://github.com/jagheterfredrik/wallbox-tooling/issues/4
-    # "charging_enable": {
-    #     "component": "switch",
-    #     "config": {
-    #         "name": "Charging enable",
-    #         "payload_on": 1,
-    #         "payload_off": 0,
-    #         "command_topic": "~/set",
-    #         "icon": "mdi:ev-station",
-    #     },
-    # },
+    "charging_enable": {
+        "component": "switch",
+        "setter": pause_resume,
+        "config": {
+            "name": "Charging enable",
+            "payload_on": 1,
+            "payload_off": 0,
+            "command_topic": "~/set",
+            "icon": "mdi:ev-station",
+        },
+    },
     "lock": {
         "component": "lock",
+        "setter": lambda val: sql_execute("UPDATE `wallbox_config` SET `lock`=%s;", val),
         "config": {
             "name": "Lock",
             "payload_lock": 1,
@@ -39,6 +74,7 @@ ENTITIES_CONFIG = {
     },
     "max_charging_current": {
         "component": "number",
+        "setter": lambda val: sql_execute("UPDATE `wallbox_config` SET `max_charging_current`=%s;", val),
         "config": {
             "name": "Max charging current",
             "command_topic": "~/set",
@@ -70,6 +106,13 @@ ENTITIES_CONFIG = {
     #         "suggested_display_precision": 1,
     #     },
     # },
+    "status": {
+        "component": "sensor",
+        "getter": lambda: int(redis_connection.hget("m2w", "tms.charger_status")),
+        "config": {
+            "name": "Status",
+        },
+    },
     "added_energy": {
         "component": "sensor",
         "config": {
@@ -118,20 +161,6 @@ FROM `wallbox_config`, `active_session`, `power_outage_values`;
 
 UPDATEABLE_WALLBOX_CONFIG_FIELDS = ["charging_enable", "lock", "max_charging_current"]
 
-connection = pymysql.connect(
-    host="localhost",
-    user="root",
-    password="fJmExsJgmKV7cq8H",
-    db="wallbox",
-    charset="utf8mb4",
-    cursorclass=pymysql.cursors.DictCursor,
-)
-# Because the transaction isolation is set to REPEATABLE-READ we need to commit after every write and read.
-# If it was READ-COMMITTED this would only be needed after every write.
-# Check the transaction isolation with:
-# "SELECT @@GLOBAL.tx_isolation, @@tx_isolation;"
-connection.autocommit(True)
-
 mqttc = mqtt.Client()
 
 try:
@@ -145,10 +174,19 @@ try:
     device_name = config["settings"]["device_name"]
 
     with connection.cursor() as cursor:
+        # Prepare the MQTT topic name to include the serial number of the Wallbox
         cursor.execute("SELECT `serial_num` FROM `charger_info`;")
         result = cursor.fetchone()
         assert result
         serial_num = str(result["serial_num"])
+
+        # Set max available current
+        cursor.execute("SELECT `max_avbl_current` FROM `state_values` ORDER BY `id` DESC LIMIT 1;")
+        result = cursor.fetchone()
+        assert result
+        max_avbl_current = str(result["max_avbl_current"])
+        ENTITIES_CONFIG["max_charging_current"]["config"]["max"] = int(max_avbl_current)
+
 
     topic_prefix = "wallbox_" + serial_num
     set_topic = topic_prefix + "/+/set"
@@ -181,13 +219,9 @@ try:
         m = set_topic_re.match(message.topic)
         if m:
             field = m.group(1)
-            if field in UPDATEABLE_WALLBOX_CONFIG_FIELDS:
+            if field in ENTITIES_CONFIG and "setter" in ENTITIES_CONFIG[field]:
                 print("Setting:", field, message.payload)
-                with connection.cursor() as cursor:
-                    cursor.execute(
-                        "UPDATE `wallbox_config` SET `" + field + "`=%s;",
-                        (message.payload),
-                    )
+                ENTITIES_CONFIG[field]["setter"](message.payload)
             else:
                 print("Setting unsupported:", field, message.payload)
 
@@ -205,6 +239,9 @@ try:
                 cursor.execute(DB_QUERY)
                 result = cursor.fetchone()
                 assert result
+            for k, v in ENTITIES_CONFIG.items():
+                if "getter" in v:
+                    result[k] = v["getter"]()
             for key, val in result.items():
                 if published.get(key) != val:
                     print("Publishing:", key, val)
